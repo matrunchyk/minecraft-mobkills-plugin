@@ -28,12 +28,13 @@ jobs:
 
       - name: Publish to release
         id: publish
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          asset_path: build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
-          asset_name: MobKillsPlugin-1.0-SNAPSHOT.jar
-          asset_content_type: application/java-archive
+          files: |
+            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Release v1.0.0
           tag_name: ${{ github.ref }}
           release_id: ${{ env.RELEASE_ID }}
           repo: ${{ github.repository }}
-          token: ${{ secrets.GITHUB_TOKEN }}
