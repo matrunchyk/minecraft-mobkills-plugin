@@ -191,14 +191,20 @@ public class MobKillsPlugin extends JavaPlugin {
                 updateScoreboard(event);
             }
 
+            Material killedWith = event.getEntity().getKiller().getInventory().getItemInMainHand().getType();
+            EntityType killedEntityType = event.getEntity().getType();
+
             // If creeper killed by a wooden shovel
             //noinspection ConstantConditions
             if (event.getEntity().getKiller() instanceof Player
                 && (
-                    event.getEntity().getType() == EntityType.CREEPER
-                    || event.getEntity().getType() == EntityType.ZOMBIE
+                    killedEntityType == EntityType.CREEPER
+                    || killedEntityType == EntityType.ZOMBIE
                 )
-                && event.getEntity().getKiller().getInventory().getItemInMainHand().getType() == Material.WOODEN_SHOVEL
+                && (
+                    killedWith == Material.WOODEN_SHOVEL
+                    || killedWith == Material.CROSSBOW
+                )
             ) {
                 tameMob(event);
             }
@@ -233,7 +239,13 @@ public class MobKillsPlugin extends JavaPlugin {
         public void onEntityTarget(EntityTargetEvent event) {
             Entity entity = event.getEntity();
             String entityName = entity.getName();
-            LOGGER.info("Entity " + Objects.requireNonNull(event.getTarget()).getName() + " was targeted by " + event.getEntity().getName() + " in location " + event.getEntity().getLocation());
+            Entity target = event.getTarget();
+
+            if (target == null) {
+                LOGGER.info("Entity " + event.getEntity().getName() + " targeted something in location " + event.getEntity().getLocation());
+            } else {
+                LOGGER.info("Entity " + event.getTarget().getName() + " was targeted by " + event.getEntity().getName() + " in location " + event.getEntity().getLocation());
+            }
         }
 
         @EventHandler
@@ -352,8 +364,8 @@ public class MobKillsPlugin extends JavaPlugin {
                                 if (creeper.isValid()) { // Check if creeper is still valid
                                     world.createExplosion(
                                         loc,
-                                        200f,
-                                        false,
+                                        10f,
+                                        true,
                                         true,
                                         player
                                     ); // Explode the creeper
@@ -389,12 +401,13 @@ public class MobKillsPlugin extends JavaPlugin {
                 event.setCancelled(true); // Prevent the creeper from dying
             } else if (entity.getType() == EntityType.ZOMBIE) {
                 Location location = event.getEntity().getLocation();
+                location.getWorld().strikeLightning(location);
                 entity.remove();
                 entity = location.getWorld().spawnEntity(location, EntityType.GIANT);
 
                 Vector velocity = player.getLocation().subtract(location).toVector().normalize();
                 Fireball fireball = ((Giant) entity).launchProjectile(LargeFireball.class, velocity);
-                fireball.setIsIncendiary(false);
+                fireball.setIsIncendiary(true);
                 fireball.setYield(1);
             }
 
