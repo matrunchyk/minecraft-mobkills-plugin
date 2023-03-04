@@ -36,17 +36,3 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-
-#      - name: Publish to release
-#        id: publish
-#        uses: softprops/action-gh-release@v1
-#        if: startsWith(github.ref, 'refs/tags/')
-#        with:
-#          files: |
-#            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
-#          token: ${{ secrets.GITHUB_TOKEN }}
-#          name: Release ${{ github.ref }}
-#          tag_name: ${{ github.ref }}
-#          release_id: ${{ env.RELEASE_ID }}
-#          repo: ${{ github.repository }}
-#          asset_name: MobKillsPlugin-${{ github.ref }}.jar
