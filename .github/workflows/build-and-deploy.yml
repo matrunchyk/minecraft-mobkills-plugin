@@ -31,9 +31,10 @@ jobs:
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+          files: |
+            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
           tag_name: v${{ github.ref }}
           name: Release v${{ github.ref }}
           draft: false
