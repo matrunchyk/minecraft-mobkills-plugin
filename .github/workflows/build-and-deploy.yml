@@ -2,7 +2,8 @@ name: Build and publish
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
@@ -20,6 +21,25 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build
 
+      - name: Create tag
+        id: create_tag
+        if: success()
+        run: |
+          echo ::set-output name=tag::v1.0.$(date +'%Y%m%d%H%M%S')
+        shell: bash
+
+      - name: Create release
+        id: create_release
+        if: steps.create_tag.outputs.tag
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.create_tag.outputs.tag }}
+          release_name: Release ${{ steps.create_tag.outputs.tag }}
+          draft: false
+          prerelease: false
+
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -34,7 +54,8 @@ jobs:
           files: |
             build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: Release v1.0.0
+          name: Release ${{ github.ref }}
           tag_name: ${{ github.ref }}
           release_id: ${{ env.RELEASE_ID }}
           repo: ${{ github.repository }}
+          asset_name: MobKillsPlugin-${{ github.ref }}.jar
