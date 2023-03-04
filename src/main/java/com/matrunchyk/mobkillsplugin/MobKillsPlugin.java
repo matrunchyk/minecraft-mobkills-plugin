@@ -400,10 +400,10 @@ public class MobKillsPlugin extends JavaPlugin {
 
                 event.setCancelled(true); // Prevent the creeper from dying
             } else if (entity.getType() == EntityType.ZOMBIE) {
-                Location location = event.getEntity().getLocation();
-                // location.getWorld().strikeLightning(location);
+                Location initialLocation = event.getEntity().getLocation();
+                // initialLocation.getWorld().strikeLightning(initialLocation);
                 entity.remove();
-                entity = location.getWorld().spawnEntity(location, EntityType.GIANT);
+                entity = initialLocation.getWorld().spawnEntity(initialLocation, EntityType.GIANT);
                 entity.setGravity(true);
 
                 Entity finalEntity = entity;
@@ -440,14 +440,14 @@ public class MobKillsPlugin extends JavaPlugin {
                     public void run() {
                         if (finalEntity.isValid() && player.isValid()) {
                             // Get player head location
-                            Location target = player.getEyeLocation();
+                            Location targetLocation = player.getEyeLocation();
 
                             // Calculate velocity towards the target, including player head height
-                            Vector velocity = target.subtract(location).toVector().normalize();
-                            velocity.setY(velocity.getY() + (target.getY() - location.getY()) / 3);
+                            Vector velocity = targetLocation.subtract(finalEntity.getLocation()).toVector().normalize();
+                            velocity.setY(velocity.getY() + (targetLocation.getY() - finalEntity.getLocation().getY()) / 3);
 
                             // Launch fireball
-                            Fireball fireball = ((Giant) finalEntity).launchProjectile(LargeFireball.class, velocity);
+                            Fireball fireball = ((Giant) finalEntity).launchProjectile(LargeFireball.class, finalEntity.getVelocity());
                             fireball.setIsIncendiary(true);
                             fireball.setYield(0);
 
