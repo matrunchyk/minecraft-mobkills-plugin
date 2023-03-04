@@ -28,34 +28,25 @@ jobs:
           echo ::set-output name=tag::v1.0.$(date +'%Y%m%d%H%M%S')
         shell: bash
 
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-          files: |
-            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
-          tag_name: v${{ github.ref }}
-          name: Release v${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: MobKillsPlugin
-          path: build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
-
-      - name: Publish to release
-        id: publish
+      - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: Release ${{ github.ref }}
-          tag_name: ${{ github.ref }}
-          release_id: ${{ env.RELEASE_ID }}
-          repo: ${{ github.repository }}
-          asset_name: MobKillsPlugin-${{ github.ref }}.jar
+          files: build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+#      - name: Publish to release
+#        id: publish
+#        uses: softprops/action-gh-release@v1
+#        if: startsWith(github.ref, 'refs/tags/')
+#        with:
+#          files: |
+#            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          name: Release ${{ github.ref }}
+#          tag_name: ${{ github.ref }}
+#          release_id: ${{ env.RELEASE_ID }}
+#          repo: ${{ github.repository }}
+#          asset_name: MobKillsPlugin-${{ github.ref }}.jar
