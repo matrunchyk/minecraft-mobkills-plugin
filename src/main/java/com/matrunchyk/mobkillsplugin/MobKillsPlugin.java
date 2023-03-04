@@ -88,12 +88,6 @@ public class MobKillsPlugin extends JavaPlugin {
     private void loadConfig() {
         LOGGER.info("Loading config...");
 
-        LOGGER.info("Available server locales:");
-        Locale[] locales = Locale.getAvailableLocales();
-        for (Locale locale : locales) {
-            LOGGER.info(locale.getLanguage() + "_" + locale.getCountry());
-        }
-
         // Force saving defaults from resource files, overriding existing ones, if any
         saveDefaultConfig();
         saveResource("lang/lang_en.yml", true);
@@ -115,7 +109,7 @@ public class MobKillsPlugin extends JavaPlugin {
 
         // If the file doesn't exist, return (there are no saved scores)
         if (!file.exists()) {
-            LOGGER.warning( "File " + file.getAbsolutePath() + " does not exist!");
+            LOGGER.warning("File " + file.getAbsolutePath() + " does not exist!");
             return;
         }
 
@@ -185,26 +179,32 @@ public class MobKillsPlugin extends JavaPlugin {
         @EventHandler
         public void onEntityDeath(EntityDeathEvent event) {
             LOGGER.info("Entity " + event.getEntity().getName() + " just died");
+            Player killer = event.getEntity().getKiller();
+
+            if (killer == null) {
+                return;
+            }
+
             // Check if the killer is a player and the entity is a living entity (not an item or projectile, etc.)
             //noinspection ConstantConditions
-            if (event.getEntity().getKiller() instanceof Player && event.getEntityType().isAlive()) {
+            if (killer instanceof Player && event.getEntityType().isAlive()) {
                 updateScoreboard(event);
             }
 
-            Material killedWith = event.getEntity().getKiller().getInventory().getItemInMainHand().getType();
+            Material killedWith = killer.getInventory().getItemInMainHand().getType();
             EntityType killedEntityType = event.getEntity().getType();
 
-            // If creeper killed by a wooden shovel
+            // If entity killed by a special weapon (wooden shovel or crossbow)
             //noinspection ConstantConditions
             if (event.getEntity().getKiller() instanceof Player
                 && (
-                    killedEntityType == EntityType.CREEPER
+                killedEntityType == EntityType.CREEPER
                     || killedEntityType == EntityType.ZOMBIE
-                )
+            )
                 && (
-                    killedWith == Material.WOODEN_SHOVEL
-                    || killedWith == Material.CROSSBOW
-                )
+                killedWith == Material.WOODEN_SHOVEL
+                    || killedWith == Material.BOW
+            )
             ) {
                 tameMob(event);
             }
@@ -298,9 +298,9 @@ public class MobKillsPlugin extends JavaPlugin {
                     } else if (creeper.getTarget() != player) {
                         player.sendMessage(ChatColor.RED + getMessage(player, "creeper_is_not_targeting"));
                     } else if (creeper.getLocation().distance(player.getLocation()) > 10) {
-                        player.sendMessage(ChatColor.RED + getMessage(player,"creeper_is_too_far_away_the_player"));
+                        player.sendMessage(ChatColor.RED + getMessage(player, "creeper_is_too_far_away_the_player"));
                     } else {
-                        player.sendMessage(ChatColor.GREEN + getMessage(player,"creeper_is_tamed_by_you_cancelling_explosion"));
+                        player.sendMessage(ChatColor.GREEN + getMessage(player, "creeper_is_tamed_by_you_cancelling_explosion"));
                         event.setCancelled(true);
                         event.setYield(0);
                         creeper.setIgnited(false);
@@ -340,7 +340,7 @@ public class MobKillsPlugin extends JavaPlugin {
 
                     if (player == null) {
                         LOGGER.info("Interacted creeper was tamed unknown player");
-                        interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer,  "failed_to_find_a_tamed_player_by_uuid"));
+                        interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer, "failed_to_find_a_tamed_player_by_uuid"));
                     } else if (creeper.getLocation().distance(player.getLocation()) > 10) {
                         LOGGER.info("Interacted creeper was tamed by a player which is too far");
                         interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer, "creeper_is_too_far_away_the_player"));
@@ -401,14 +401,61 @@ public class MobKillsPlugin extends JavaPlugin {
                 event.setCancelled(true); // Prevent the creeper from dying
             } else if (entity.getType() == EntityType.ZOMBIE) {
                 Location location = event.getEntity().getLocation();
-                location.getWorld().strikeLightning(location);
+                // location.getWorld().strikeLightning(location);
                 entity.remove();
                 entity = location.getWorld().spawnEntity(location, EntityType.GIANT);
+                entity.setGravity(true);
 
-                Vector velocity = player.getLocation().subtract(location).toVector().normalize();
-                Fireball fireball = ((Giant) entity).launchProjectile(LargeFireball.class, velocity);
-                fireball.setIsIncendiary(true);
-                fireball.setYield(1);
+                Entity finalEntity = entity;
+                MobKillsPlugin plugin = (MobKillsPlugin) Bukkit.getPluginManager().getPlugin(MOB_KILLS);
+                assert plugin != null;
+
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (finalEntity.isValid() && player.isValid()) {
+                            Vector velocity = player.getLocation().subtract(finalEntity.getLocation()).toVector().normalize().multiply(0.1);
+
+                            finalEntity.setVelocity(velocity);
+                            // Make the giant face the direction of the player
+                            finalEntity.getLocation().setDirection(velocity);
+
+                            Vector direction = finalEntity.getVelocity();
+                            double x = direction.getX();
+                            double z = direction.getZ();
+
+                            float yaw = (float) Math.toDegrees(Math.atan2(-direction.getX(), direction.getZ()));
+                            float pitch = (float) Math.toDegrees(Math.asin(direction.getY()));
+
+                            finalEntity.setRotation(yaw, pitch);
+
+                        } else {
+                            this.cancel();
+                        }
+                    }
+                }.runTaskTimer(plugin, 0L, 1L);
+
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (finalEntity.isValid() && player.isValid()) {
+                            // Get player head location
+                            Location target = player.getEyeLocation();
+
+                            // Calculate velocity towards the target, including player head height
+                            Vector velocity = target.subtract(location).toVector().normalize();
+                            velocity.setY(velocity.getY() + (target.getY() - location.getY()) / 3);
+
+                            // Launch fireball
+                            Fireball fireball = ((Giant) finalEntity).launchProjectile(LargeFireball.class, velocity);
+                            fireball.setIsIncendiary(true);
+                            fireball.setYield(0);
+
+                        } else {
+                            this.cancel();
+                        }
+                    }
+                }.runTaskTimer(plugin, 0L, 20L);
             }
 
             player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRIGGER, 8f, 1f);
