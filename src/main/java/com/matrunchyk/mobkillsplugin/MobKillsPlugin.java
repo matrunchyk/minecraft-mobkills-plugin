@@ -439,15 +439,29 @@ public class MobKillsPlugin extends JavaPlugin {
                     @Override
                     public void run() {
                         if (finalEntity.isValid() && player.isValid()) {
-                            // Get player head location
-                            Location targetLocation = player.getEyeLocation();
+                            // Get the player's and giant's locations
+                            Location playerLoc = player.getLocation();
+                            Location giantLoc = finalEntity.getLocation();
 
-                            // Calculate velocity towards the target, including player head height
-                            Vector velocity = targetLocation.subtract(finalEntity.getLocation()).toVector().normalize();
-                            velocity.setY(velocity.getY() + (targetLocation.getY() - finalEntity.getLocation().getY()) / 3);
+                            // Calculate the vector from the giant to the player
+                            Vector direction = playerLoc.subtract(giantLoc).toVector();
 
-                            // Launch fireball
-                            Fireball fireball = ((Giant) finalEntity).launchProjectile(LargeFireball.class, finalEntity.getVelocity());
+                            // Calculate the angle between the player and the giant
+                            double angle = Math.atan2(direction.getZ(), direction.getX());
+
+                            // Calculate the X and Z components of the velocity
+                            double x = Math.cos(angle);
+                            double z = Math.sin(angle);
+
+                            // Calculate the Y component of the velocity
+                            double y = direction.getY() / direction.length();
+
+                            // Create the velocity vector
+                            Vector velocity = new Vector(x, y, z);
+                            velocity.normalize();
+
+                            // Launch the fireball
+                            Fireball fireball = ((Giant) finalEntity).launchProjectile(LargeFireball.class, velocity);
                             fireball.setIsIncendiary(true);
                             fireball.setYield(0);
 
