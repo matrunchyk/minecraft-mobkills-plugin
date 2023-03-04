@@ -34,8 +34,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: |
-            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
           tag_name: v${{ github.ref }}
           name: Release v${{ github.ref }}
           draft: false
