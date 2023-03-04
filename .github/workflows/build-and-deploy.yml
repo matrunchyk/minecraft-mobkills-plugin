@@ -28,15 +28,16 @@ jobs:
           echo ::set-output name=tag::v1.0.$(date +'%Y%m%d%H%M%S')
         shell: bash
 
-      - name: Create release
+      - name: Create Release
         id: create_release
-        if: steps.create_tag.outputs.tag
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.create_tag.outputs.tag }}
-          release_name: Release ${{ steps.create_tag.outputs.tag }}
+          files: |
+            build/libs/MobKillsPlugin-1.0-SNAPSHOT.jar
+          tag_name: v${{ github.ref }}
+          name: Release v${{ github.ref }}
           draft: false
           prerelease: false
 
