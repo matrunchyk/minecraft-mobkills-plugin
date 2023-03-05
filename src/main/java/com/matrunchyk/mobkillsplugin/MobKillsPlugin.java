@@ -217,7 +217,8 @@ public class MobKillsPlugin extends JavaPlugin {
             String damagedBy = event.getDamager().getName();
             LOGGER.info("Entity " + entityName + " is damaged by " + damagedBy);
 
-            if (event.getDamager() instanceof Creeper creeper) {
+            if (event.getDamager() instanceof Creeper) {
+                Creeper creeper = (Creeper) event.getDamager();
                 Player player = (Player) entity;
                 UUID interactedSteamUUID = player.getUniqueId();
 
@@ -264,7 +265,8 @@ public class MobKillsPlugin extends JavaPlugin {
 
         @EventHandler
         public void onEntityDamage(EntityDamageEvent event) {
-            if (event.getEntity() instanceof LivingEntity entity) {
+            if (event.getEntity() instanceof LivingEntity) {
+                LivingEntity entity = (LivingEntity) event.getEntity();
                 String entityName = entity.getName();
                 LOGGER.info("Entity " + entityName + " is damaged by " + event.getCause() + " of " + event.getDamage());
 
@@ -278,8 +280,8 @@ public class MobKillsPlugin extends JavaPlugin {
         @EventHandler
         public void onEntityExplode(EntityExplodeEvent event) {
             Entity entity = event.getEntity();
-            if (entity instanceof Creeper creeper) {
-
+            if (entity instanceof Creeper) {
+                Creeper creeper = (Creeper) entity;
                 MobKillsPlugin plugin = (MobKillsPlugin) Bukkit.getPluginManager().getPlugin(MOB_KILLS);
                 PersistentDataContainer dataContainer = creeper.getPersistentDataContainer();
                 assert plugin != null;
@@ -314,7 +316,8 @@ public class MobKillsPlugin extends JavaPlugin {
             LOGGER.info(event.getPlayer().getName() + " is interacted with hand " + event.getHand().name() + " to " + event.getRightClicked().getName());
 
             //noinspection ConstantConditions
-            if (event.getRightClicked() instanceof Creeper creeper && event.getPlayer() != null) {
+            if (event.getRightClicked() instanceof Creeper && event.getPlayer() != null) {
+                Creeper creeper = (Creeper) event.getRightClicked();
                 Player interactedPlayer = event.getPlayer();
                 UUID interactedSteamUUID = interactedPlayer.getUniqueId();
 
