@@ -20,7 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.LargeFireball;
 import org.bukkit.entity.Fireball;
-import org.bukkit.entity.Giant;
+import org.bukkit.entity.Illusioner;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -403,7 +403,7 @@ public class MobKillsPlugin extends JavaPlugin {
                 Location initialLocation = event.getEntity().getLocation();
                 // initialLocation.getWorld().strikeLightning(initialLocation);
                 entity.remove();
-                entity = initialLocation.getWorld().spawnEntity(initialLocation, EntityType.GIANT);
+                entity = initialLocation.getWorld().spawnEntity(initialLocation, EntityType.ILLUSIONER);
                 entity.setGravity(true);
 
                 Entity finalEntity = entity;
@@ -461,7 +461,7 @@ public class MobKillsPlugin extends JavaPlugin {
                             velocity.normalize();
 
                             // Launch the fireball
-                            Fireball fireball = ((Giant) finalEntity).launchProjectile(LargeFireball.class, velocity);
+                            Fireball fireball = ((Illusioner) finalEntity).launchProjectile(LargeFireball.class, velocity);
                             fireball.setIsIncendiary(true);
                             fireball.setYield(0);
 

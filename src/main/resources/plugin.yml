@@ -1,5 +1,5 @@
 name: MobKills
-version: 1.0.2
+version: 1.0.4
 main: com.matrunchyk.mobkillsplugin.MobKillsPlugin
 description: A plugin that tracks the number of mobs killed by each player.
 author: Serhii Matrunchyk
