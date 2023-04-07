@@ -6,3 +6,8 @@ author: Serhii Matrunchyk
 api-version: 1.19
 load: STARTUP
 website: https://matrunchyk.com
+
+commands:
+  daddy-power:
+    description: Gives players a "Daddy Power" kit
+    usage: /daddy-power

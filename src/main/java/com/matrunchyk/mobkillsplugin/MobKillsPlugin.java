@@ -3,6 +3,7 @@ package com.matrunchyk.mobkillsplugin;
 
 import com.destroystokyo.paper.event.entity.CreeperIgniteEvent;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -11,6 +12,7 @@ import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Creeper;
@@ -20,12 +22,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.LargeFireball;
 import org.bukkit.entity.Fireball;
-import org.bukkit.entity.Illusioner;
+import org.bukkit.entity.Giant;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.CreeperPowerEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
@@ -62,10 +63,12 @@ public class MobKillsPlugin extends JavaPlugin {
     // Store the number of mob kills for each player
     private final Map<String, Integer> mobKills = new HashMap<>();
 
+    private final Map<UUID, Integer> skeletonDeathCountMap = new HashMap<>();
+
     // Called when the plugin is enabled
     @Override
     public void onEnable() {
-        LOGGER.info("MobKillsPlugin has been enabled!");
+        LOGGER.info("MobKillsPlugin v2.1 has been enabled!");
 
         loadConfig();
 
@@ -74,6 +77,13 @@ public class MobKillsPlugin extends JavaPlugin {
 
         // Register the EntityDeathListener to handle mob kills
         getServer().getPluginManager().registerEvents(new MobKillsEventListener(), this);
+
+        // Register the DaddyPowerCommand
+        PluginCommand daddyPowerCommand = getCommand("daddy-power");
+
+        if (daddyPowerCommand != null) {
+            daddyPowerCommand.setExecutor(new DaddyPowerCommand(this));
+        }
     }
 
     // Called when the plugin is disabled
@@ -148,6 +158,28 @@ public class MobKillsPlugin extends JavaPlugin {
         }
     }
 
+    public int getSkeletonCount(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        if (!skeletonDeathCountMap.containsKey(uuid)) {
+            return 0;
+        }
+        return skeletonDeathCountMap.get(uuid);
+    }
+
+    public void incrementSkeletonCount(Player player) {
+        UUID uuid = player.getUniqueId();
+        int deathCount = skeletonDeathCountMap.getOrDefault(uuid, 0);
+
+        LOGGER.info("Skeleton death count of player " + player.getName() + " is increased to " + (deathCount + 1));
+        skeletonDeathCountMap.put(uuid, deathCount + 1);
+    }
+
+    public void resetSkeletonCount(Player player) {
+        LOGGER.info("Resetting death count of player " + player.getName());
+        skeletonDeathCountMap.put(player.getUniqueId(), 0);
+    }
+
     // Listener class to handle EntityDeathEvents (i.e. mob kills)
     private class MobKillsEventListener implements Listener {
         @EventHandler
@@ -178,7 +210,6 @@ public class MobKillsPlugin extends JavaPlugin {
         // Called when a mob is killed by a player
         @EventHandler
         public void onEntityDeath(EntityDeathEvent event) {
-            LOGGER.info("Entity " + event.getEntity().getName() + " just died");
             Player killer = event.getEntity().getKiller();
 
             if (killer == null) {
@@ -197,16 +228,20 @@ public class MobKillsPlugin extends JavaPlugin {
             // If entity killed by a special weapon (wooden shovel or crossbow)
             //noinspection ConstantConditions
             if (event.getEntity().getKiller() instanceof Player
-                && (
-                killedEntityType == EntityType.CREEPER
-                    || killedEntityType == EntityType.ZOMBIE
+                    && (
+                    killedEntityType == EntityType.CREEPER
+                            || killedEntityType == EntityType.ZOMBIE
             )
-                && (
-                killedWith == Material.WOODEN_SHOVEL
-                    || killedWith == Material.BOW
+                    && (
+                    killedWith == Material.WOODEN_SHOVEL
+                            || killedWith == Material.BOW
             )
             ) {
                 tameMob(event);
+            }
+
+            if (event.getEntity().getKiller() instanceof Player && killedEntityType == EntityType.SKELETON) {
+                incrementSkeletonCount(event.getEntity().getKiller());
             }
         }
 
@@ -215,7 +250,6 @@ public class MobKillsPlugin extends JavaPlugin {
             Entity entity = event.getEntity();
             String entityName = entity.getName();
             String damagedBy = event.getDamager().getName();
-            LOGGER.info("Entity " + entityName + " is damaged by " + damagedBy);
 
             if (event.getDamager() instanceof Creeper) {
                 Creeper creeper = (Creeper) event.getDamager();
@@ -236,6 +270,7 @@ public class MobKillsPlugin extends JavaPlugin {
             }
         }
 
+        /*
         @EventHandler
         public void onEntityTarget(EntityTargetEvent event) {
             Entity entity = event.getEntity();
@@ -243,11 +278,12 @@ public class MobKillsPlugin extends JavaPlugin {
             Entity target = event.getTarget();
 
             if (target == null) {
-                LOGGER.info("Entity " + event.getEntity().getName() + " targeted something in location " + event.getEntity().getLocation());
+                 LOGGER.info("Entity " + event.getEntity().getName() + " has no target in location " + event.getEntity().getLocation());
             } else {
-                LOGGER.info("Entity " + event.getTarget().getName() + " was targeted by " + event.getEntity().getName() + " in location " + event.getEntity().getLocation());
+                 LOGGER.info("Entity " + event.getTarget().getName() + " was targeted by " + event.getEntity().getName() + " in location " + event.getEntity().getLocation());
             }
         }
+        */
 
         @EventHandler
         public void onCreeperIgnite(CreeperIgniteEvent event) {
@@ -268,7 +304,7 @@ public class MobKillsPlugin extends JavaPlugin {
             if (event.getEntity() instanceof LivingEntity) {
                 LivingEntity entity = (LivingEntity) event.getEntity();
                 String entityName = entity.getName();
-                LOGGER.info("Entity " + entityName + " is damaged by " + event.getCause() + " of " + event.getDamage());
+                // LOGGER.info("Entity " + entityName + " is damaged by " + event.getCause() + " of " + event.getDamage());
 
                 if (entity.getHealth() <= 0) {
                     entity.setHealth(Objects.requireNonNull(entity.getAttribute(Attribute.GENERIC_MAX_HEALTH)).getValue());
@@ -298,11 +334,11 @@ public class MobKillsPlugin extends JavaPlugin {
                     if (player == null) {
                         LOGGER.info("Failed to find a player by UUID. Is he offline?");
                     } else if (creeper.getTarget() != player) {
-                        player.sendMessage(ChatColor.RED + getMessage(player, "creeper_is_not_targeting"));
+                        player.sendMessage(Component.text(NamedTextColor.RED + getMessage(player, "creeper_is_not_targeting")));
                     } else if (creeper.getLocation().distance(player.getLocation()) > 10) {
-                        player.sendMessage(ChatColor.RED + getMessage(player, "creeper_is_too_far_away_the_player"));
+                        player.sendMessage(Component.text(NamedTextColor.RED + getMessage(player, "creeper_is_too_far_away_the_player")));
                     } else {
-                        player.sendMessage(ChatColor.GREEN + getMessage(player, "creeper_is_tamed_by_you_cancelling_explosion"));
+                        player.sendMessage(Component.text(NamedTextColor.GREEN + getMessage(player, "creeper_is_tamed_by_you_cancelling_explosion")));
                         event.setCancelled(true);
                         event.setYield(0);
                         creeper.setIgnited(false);
@@ -332,10 +368,10 @@ public class MobKillsPlugin extends JavaPlugin {
 
                 if (tamedByValue == null) {
                     LOGGER.info("Interacted creeper was NOT tamed by anyone");
-                    interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer, "creeper_is_not_tamed_by_anyone"));
+                    interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "creeper_is_not_tamed_by_anyone")));
                 } else if (isAboutToSelfDestruct) {
                     LOGGER.info("Interacted creeper is about to destruct");
-                    interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer, "creeper_is_already_about_to_destruct"));
+                    interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "creeper_is_already_about_to_destruct")));
                 } else {
                     LOGGER.info("Interacted creeper was tamed by " + tamedByValue);
                     UUID steamUUID = UUID.fromString(tamedByValue);
@@ -343,16 +379,16 @@ public class MobKillsPlugin extends JavaPlugin {
 
                     if (player == null) {
                         LOGGER.info("Interacted creeper was tamed unknown player");
-                        interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer, "failed_to_find_a_tamed_player_by_uuid"));
+                        interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "failed_to_find_a_tamed_player_by_uuid")));
                     } else if (creeper.getLocation().distance(player.getLocation()) > 10) {
                         LOGGER.info("Interacted creeper was tamed by a player which is too far");
-                        interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer, "creeper_is_too_far_away_the_player"));
+                        interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "creeper_is_too_far_away_the_player")));
                     } else if (!interactedSteamUUID.toString().equals(steamUUID.toString())) {
                         LOGGER.info("Interacted creeper was tamed by UUID: '" + steamUUID + "', which is not the same as interacting UUID: '" + interactedSteamUUID + "'");
-                        interactedPlayer.sendMessage(ChatColor.RED + getMessage(interactedPlayer, "interacting_player_is_not_the_same"));
+                        interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "interacting_player_is_not_the_same")));
                     } else {
                         LOGGER.info("Interacted creeper was tamed by interacting player, setting explosion timeout!");
-                        player.sendMessage(ChatColor.RED + getMessage(player, "creeper_is_about_to_explode"));
+                        player.sendMessage(Component.text(NamedTextColor.RED + getMessage(player, "creeper_is_about_to_explode")));
                         dataContainer.set(selfDestructionKey, PersistentDataType.STRING, "1");
                         Location loc = creeper.getLocation();
                         World world = loc.getWorld();
@@ -366,11 +402,11 @@ public class MobKillsPlugin extends JavaPlugin {
                                 LOGGER.info("Explosion!!!");
                                 if (creeper.isValid()) { // Check if creeper is still valid
                                     world.createExplosion(
-                                        loc,
-                                        10f,
-                                        true,
-                                        true,
-                                        player
+                                            loc,
+                                            10f,
+                                            true,
+                                            true,
+                                            player
                                     ); // Explode the creeper
                                     creeper.remove(); // Remove the creeper
 
@@ -406,8 +442,16 @@ public class MobKillsPlugin extends JavaPlugin {
                 Location initialLocation = event.getEntity().getLocation();
                 // initialLocation.getWorld().strikeLightning(initialLocation);
                 entity.remove();
-                entity = initialLocation.getWorld().spawnEntity(initialLocation, EntityType.ILLUSIONER);
+                entity = initialLocation.getWorld().spawnEntity(initialLocation, EntityType.GIANT);
                 entity.setGravity(true);
+                entity.customName(Component.text(NamedTextColor.RED + "Zombie Giant"));
+                entity.setCustomNameVisible(true);
+                ((Giant) entity).setAI(true);
+                ((Giant) entity).setCollidable(true);
+                ((Giant) entity).setAware(true);
+                ((Giant) entity).setCanPickupItems(true);
+                ((Giant) entity).setRemoveWhenFarAway(false);
+
 
                 Entity finalEntity = entity;
                 MobKillsPlugin plugin = (MobKillsPlugin) Bukkit.getPluginManager().getPlugin(MOB_KILLS);
@@ -464,7 +508,7 @@ public class MobKillsPlugin extends JavaPlugin {
                             velocity.normalize();
 
                             // Launch the fireball
-                            Fireball fireball = ((Illusioner) finalEntity).launchProjectile(LargeFireball.class, velocity);
+                            Fireball fireball = ((Giant) finalEntity).launchProjectile(LargeFireball.class, velocity);
                             fireball.setIsIncendiary(true);
                             fireball.setYield(0);
 
@@ -472,7 +516,7 @@ public class MobKillsPlugin extends JavaPlugin {
                             this.cancel();
                         }
                     }
-                }.runTaskTimer(plugin, 0L, 20L);
+                }.runTaskTimer(plugin, 60L, 60L);
             }
 
             player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRIGGER, 8f, 1f);
@@ -507,7 +551,7 @@ public class MobKillsPlugin extends JavaPlugin {
 
             // If the objective doesn't exist, create it
             if (objective == null) {
-                LOGGER.warning(ChatColor.DARK_PURPLE + MOB_KILLS + " scoreboard doesn't exist, creating...");
+                LOGGER.warning(NamedTextColor.DARK_PURPLE + MOB_KILLS + " scoreboard doesn't exist, creating...");
                 objective = scoreboard.registerNewObjective(MOB_KILLS, Criteria.DUMMY, Component.text("Mob Kills"));
                 objective.setDisplaySlot(DisplaySlot.SIDEBAR);
             }
@@ -517,7 +561,7 @@ public class MobKillsPlugin extends JavaPlugin {
             score.setScore(newScore);
 
             // Notify the player of their new score
-            player.sendMessage(ChatColor.GREEN + getMessage(player, "you_killed_mobs", newScore));
+            player.sendMessage(Component.text(NamedTextColor.GREEN + getMessage(player, "you_killed_mobs", newScore)));
 
             // Loop through all online players and update their scoreboards with the latest scores
             for (Player p : Bukkit.getOnlinePlayers()) {
