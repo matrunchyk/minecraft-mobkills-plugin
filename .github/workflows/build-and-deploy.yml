@@ -8,6 +8,9 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
 
     steps:
       - uses: actions/checkout@v2
@@ -22,8 +25,6 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Create Release
-        permissions:
-          contents: write
         id: create_release
         uses: ncipollo/release-action@v1.12.0
         with:
