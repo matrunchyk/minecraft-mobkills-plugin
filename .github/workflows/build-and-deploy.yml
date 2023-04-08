@@ -28,9 +28,12 @@ jobs:
         id: create_release
         uses: ncipollo/release-action@v1.12.0
         with:
-          tag: v2.0
-          name: Release v2.0
+          tag: latest
+          name: latest
           draft: false
+          skipIfReleaseExists: true
+          allowUpdates: true
+          removeArtifacts: true
           prerelease: false
           generateReleaseNotes: true
           omitBody: true
