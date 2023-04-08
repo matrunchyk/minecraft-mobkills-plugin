@@ -1,18 +1,26 @@
 package com.matrunchyk.mobkillsplugin;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 
 public class DaddyPowerCommand implements CommandExecutor {
     private static final int SKELETONS_REQUIRED = 10;
@@ -29,12 +37,12 @@ public class DaddyPowerCommand implements CommandExecutor {
             Player player = (Player) sender;
 
             if (!player.hasPermission("mobkills.daddypower")) {
-                player.sendMessage(Component.text(NamedTextColor.RED + "You do not have permission to use this command."));
+                player.sendMessage(Component.text(ChatColor.RED + "You do not have permission to use this command."));
                 return true;
             }
 
             if (plugin.getSkeletonCount(player) < SKELETONS_REQUIRED) {
-                player.sendMessage(Component.text(NamedTextColor.RED + "Ви повинні перемогти ще " + (SKELETONS_REQUIRED - plugin.getSkeletonCount(player)) + " скететів, щоб активувати Daddy Power!"));
+                player.sendMessage(Component.text(ChatColor.RED + "Ви повинні перемогти ще " + (SKELETONS_REQUIRED - plugin.getSkeletonCount(player)) + " скететів, щоб активувати Daddy Power!"));
                 return true;
             }
 
@@ -46,13 +54,162 @@ public class DaddyPowerCommand implements CommandExecutor {
             // Add items to player's inventory
             addEnchantedItems(player);
 
-            player.sendMessage(Component.text(NamedTextColor.GREEN + "Ви отримали Daddy Power!"));
+            // Kill monsters 20 blocks around
+            killMonsters(player);
+
+            // Give experience
+            plugin.givePlayerExperience(player);
+
+            // Apply player effects
+            applyPlayerEffects(player);
+
+            // Play sound
+            player.playSound(player.getLocation(), Sound.BLOCK_BELL_RESONATE, SoundCategory.BLOCKS, 1, 1);
+            // player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, SoundCategory.BLOCKS, 1, 1);
+            // player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, SoundCategory.BLOCKS, 1, 1);
+            // player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.BLOCKS, 1, 1);
+
+            // Spawn particles
+            plugin.spawnParticles(player);
+
+            // Allow player to fly
+            allowFlying(player);
+
+            // Congratulate the player
+            showNotification(player);
 
             return true;
         }
 
-        sender.sendMessage(Component.text(NamedTextColor.RED + "This command can only be executed by a player."));
+        sender.sendMessage(Component.text(ChatColor.RED + "This command can only be executed by a player."));
         return true;
+    }
+
+    private void allowFlying(Player player) {
+        // Allow the player to fly
+        player.setAllowFlight(true);
+        int flightDuration = 15; // Minutes
+
+        // Create a BukkitRunnable that warns the player about fly mode expiration after ${flightDuration - 1} minutes
+        BukkitRunnable warnDisableFlightTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                player.playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, SoundCategory.BLOCKS, 1, 1);
+
+                if (player.isFlying()) {
+                    player.sendMessage(ChatColor.YELLOW + "Ви скоро впадете!");
+                }
+            }
+        };
+
+        // Create a BukkitRunnable that disables flight after ${flightDuration} minutes
+        BukkitRunnable disableFlightTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, SoundCategory.BLOCKS, 1, 1);
+                player.setAllowFlight(false);
+                player.setFlying(false);
+                player.sendMessage(ChatColor.RED + "Ви більше не можете літати");
+            }
+        };
+
+        // Schedule the BukkitRunnable to run in flightDuration minutes (20 ticks per second)
+        warnDisableFlightTask.runTaskLater(plugin, 20 * 60 * (flightDuration - 1));
+        disableFlightTask.runTaskLater(plugin, 20 * 60 * flightDuration);
+    }
+
+    private static void showNotification(Player player) {
+        // player.sendMessage(Component.text(ChatColor.GREEN + "Ви отримали Daddy Power!"));
+        String title = "Ви отримали Daddy Power!";
+        String subtitle = "Тепер у вас нова зброя, броня, ефекти та ви можете літати!";
+        int fadeIn = 10; // duration of fade in (in ticks)
+        int stay = 20 * 15; // duration of stay (in ticks), 3 seconds
+        int fadeOut = 20; // duration of fade out (in ticks)
+
+        player.sendTitle(title, subtitle, fadeIn, stay, fadeOut);
+    }
+
+    private void applyPlayerEffects(Player player) {
+        // Speed I effect for 1 hour (ticks * seconds * minutes)
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60 * 60 * 20, 0, false, false));
+
+        // Haste II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.FAST_DIGGING, 60 * 60 * 20, 1, false, false));
+
+        // Strength II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, 60 * 60 * 20, 1, false, false));
+
+        // Instant Health II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HEAL, 60 * 60 * 20, 1, false, false));
+
+        // Jump Boost II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 60 * 60 * 20, 0, false, false));
+
+        // Regeneration II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 60 * 60 * 20, 1, false, false));
+
+        // Resistance III effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 60 * 60 * 20, 2, false, false));
+
+        // Fire Resistance IV effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60 * 60 * 20, 3, false, false));
+
+        // Water Breathing III effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.WATER_BREATHING, 60 * 60 * 20, 2, false, false));
+
+        // Night Vision II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 60 * 60 * 20, 1, false, false));
+
+        // Health Boost II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HEALTH_BOOST, 60 * 60 * 20, 1, false, false));
+
+        // Slow Falling II effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 60 * 60 * 20, 1, false, false));
+
+        // Hero of the Village X effect for 1 hour
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, 60 * 60 * 20, 9, false, false));
+    }
+
+    private void killMonsters(Player player) {
+        List<EntityType> mobsToKill = Arrays.asList(
+                EntityType.BLAZE,
+                EntityType.CREEPER,
+                EntityType.ENDERMITE,
+                EntityType.EVOKER,
+                EntityType.GHAST,
+                EntityType.HOGLIN,
+                EntityType.HUSK,
+                EntityType.ILLUSIONER,
+                EntityType.MAGMA_CUBE,
+                EntityType.PHANTOM,
+                EntityType.PIGLIN_BRUTE,
+                EntityType.PILLAGER,
+                EntityType.RAVAGER,
+                EntityType.SILVERFISH,
+                EntityType.SKELETON,
+                EntityType.SLIME,
+                EntityType.VEX,
+                EntityType.VINDICATOR,
+                EntityType.WITCH,
+                EntityType.WITHER,
+                EntityType.WITHER_SKELETON,
+                EntityType.ZOGLIN,
+                EntityType.ZOMBIE
+        );
+
+        // Loop through all entities within 15 blocks of the player
+        for (Entity entity : player.getNearbyEntities(15, 15, 15)) {
+            if (mobsToKill.contains(entity.getType())) {
+                ((Damageable) entity).damage(9999, player);
+                entity.setLastDamageCause(new EntityDamageByEntityEvent(player, entity, EntityDamageEvent.DamageCause.MAGIC, 1000));
+                // Add any additional effects you want here
+                // entity.getWorld().playSound(entity.getLocation(), Sound.ENTITY_GENERIC_DEATH, 1, 1);
+                // Set the maximum loot drop for the entity
+                if (entity instanceof LivingEntity) {
+                    ((LivingEntity) entity).setMaximumNoDamageTicks(0);
+                }
+            }
+        }
     }
 
     public static void clearInventory(Player player) {

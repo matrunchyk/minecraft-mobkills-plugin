@@ -11,3 +11,9 @@ commands:
   daddy-power:
     description: Gives players a "Daddy Power" kit
     usage: /daddy-power
+  happy-birthday:
+    description: Send happy b-day wishes to a player
+    usage: /happy-birthday
+  debug:
+    description: Debug
+    usage: /debug

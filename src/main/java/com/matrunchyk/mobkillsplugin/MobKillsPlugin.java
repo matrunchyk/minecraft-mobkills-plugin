@@ -2,27 +2,15 @@
 package com.matrunchyk.mobkillsplugin;
 
 import com.destroystokyo.paper.event.entity.CreeperIgniteEvent;
+import com.matrunchyk.mobkillsplugin.models.DelayedNote;
+import com.matrunchyk.mobkillsplugin.models.NoteDelay;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.Sound;
-import org.bukkit.World;
-import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Creeper;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.LargeFireball;
-import org.bukkit.entity.Fireball;
-import org.bukkit.entity.Giant;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -30,8 +18,10 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.CreeperPowerEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -45,11 +35,7 @@ import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.UUID;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.*;
 import java.util.logging.Logger;
 
 @SuppressWarnings("unused")
@@ -68,7 +54,7 @@ public class MobKillsPlugin extends JavaPlugin {
     // Called when the plugin is enabled
     @Override
     public void onEnable() {
-        LOGGER.info("MobKillsPlugin v2.1 has been enabled!");
+        LOGGER.info("MobKillsPlugin v2.2 has been enabled!");
 
         loadConfig();
 
@@ -83,6 +69,20 @@ public class MobKillsPlugin extends JavaPlugin {
 
         if (daddyPowerCommand != null) {
             daddyPowerCommand.setExecutor(new DaddyPowerCommand(this));
+        }
+
+        // Register the DaddyPowerCommand
+        PluginCommand happyBirthdayCommand = getCommand("happy-birthday");
+
+        if (happyBirthdayCommand != null) {
+            happyBirthdayCommand.setExecutor(new HappyBirthdayCommand(this));
+        }
+
+        // Register the DebugCommand
+        PluginCommand debugCommand = getCommand("debug");
+
+        if (debugCommand != null) {
+            debugCommand.setExecutor(new DebugCommand(this));
         }
     }
 
@@ -228,14 +228,8 @@ public class MobKillsPlugin extends JavaPlugin {
             // If entity killed by a special weapon (wooden shovel or crossbow)
             //noinspection ConstantConditions
             if (event.getEntity().getKiller() instanceof Player
-                    && (
-                    killedEntityType == EntityType.CREEPER
-                            || killedEntityType == EntityType.ZOMBIE
-            )
-                    && (
-                    killedWith == Material.WOODEN_SHOVEL
-                            || killedWith == Material.BOW
-            )
+                    && (killedEntityType == EntityType.CREEPER || killedEntityType == EntityType.ZOMBIE)
+                    && killedWith == Material.WOODEN_SHOVEL
             ) {
                 tameMob(event);
             }
@@ -251,7 +245,7 @@ public class MobKillsPlugin extends JavaPlugin {
             String entityName = entity.getName();
             String damagedBy = event.getDamager().getName();
 
-            if (event.getDamager() instanceof Creeper) {
+            if (event.getDamager() instanceof Creeper && entity instanceof Player) {
                 Creeper creeper = (Creeper) event.getDamager();
                 Player player = (Player) entity;
                 UUID interactedSteamUUID = player.getUniqueId();
@@ -334,11 +328,11 @@ public class MobKillsPlugin extends JavaPlugin {
                     if (player == null) {
                         LOGGER.info("Failed to find a player by UUID. Is he offline?");
                     } else if (creeper.getTarget() != player) {
-                        player.sendMessage(Component.text(NamedTextColor.RED + getMessage(player, "creeper_is_not_targeting")));
+                        player.sendMessage(Component.text(ChatColor.RED + getMessage(player, "creeper_is_not_targeting")));
                     } else if (creeper.getLocation().distance(player.getLocation()) > 10) {
-                        player.sendMessage(Component.text(NamedTextColor.RED + getMessage(player, "creeper_is_too_far_away_the_player")));
+                        player.sendMessage(Component.text(ChatColor.RED + getMessage(player, "creeper_is_too_far_away_the_player")));
                     } else {
-                        player.sendMessage(Component.text(NamedTextColor.GREEN + getMessage(player, "creeper_is_tamed_by_you_cancelling_explosion")));
+                        player.sendMessage(Component.text(ChatColor.GREEN + getMessage(player, "creeper_is_tamed_by_you_cancelling_explosion")));
                         event.setCancelled(true);
                         event.setYield(0);
                         creeper.setIgnited(false);
@@ -368,10 +362,10 @@ public class MobKillsPlugin extends JavaPlugin {
 
                 if (tamedByValue == null) {
                     LOGGER.info("Interacted creeper was NOT tamed by anyone");
-                    interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "creeper_is_not_tamed_by_anyone")));
+                    interactedPlayer.sendMessage(Component.text(ChatColor.RED + getMessage(interactedPlayer, "creeper_is_not_tamed_by_anyone")));
                 } else if (isAboutToSelfDestruct) {
                     LOGGER.info("Interacted creeper is about to destruct");
-                    interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "creeper_is_already_about_to_destruct")));
+                    interactedPlayer.sendMessage(Component.text(ChatColor.RED + getMessage(interactedPlayer, "creeper_is_already_about_to_destruct")));
                 } else {
                     LOGGER.info("Interacted creeper was tamed by " + tamedByValue);
                     UUID steamUUID = UUID.fromString(tamedByValue);
@@ -379,16 +373,16 @@ public class MobKillsPlugin extends JavaPlugin {
 
                     if (player == null) {
                         LOGGER.info("Interacted creeper was tamed unknown player");
-                        interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "failed_to_find_a_tamed_player_by_uuid")));
+                        interactedPlayer.sendMessage(Component.text(ChatColor.RED + getMessage(interactedPlayer, "failed_to_find_a_tamed_player_by_uuid")));
                     } else if (creeper.getLocation().distance(player.getLocation()) > 10) {
                         LOGGER.info("Interacted creeper was tamed by a player which is too far");
-                        interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "creeper_is_too_far_away_the_player")));
+                        interactedPlayer.sendMessage(Component.text(ChatColor.RED + getMessage(interactedPlayer, "creeper_is_too_far_away_the_player")));
                     } else if (!interactedSteamUUID.toString().equals(steamUUID.toString())) {
                         LOGGER.info("Interacted creeper was tamed by UUID: '" + steamUUID + "', which is not the same as interacting UUID: '" + interactedSteamUUID + "'");
-                        interactedPlayer.sendMessage(Component.text(NamedTextColor.RED + getMessage(interactedPlayer, "interacting_player_is_not_the_same")));
+                        interactedPlayer.sendMessage(Component.text(ChatColor.RED + getMessage(interactedPlayer, "interacting_player_is_not_the_same")));
                     } else {
                         LOGGER.info("Interacted creeper was tamed by interacting player, setting explosion timeout!");
-                        player.sendMessage(Component.text(NamedTextColor.RED + getMessage(player, "creeper_is_about_to_explode")));
+                        player.sendMessage(Component.text(ChatColor.RED + getMessage(player, "creeper_is_about_to_explode")));
                         dataContainer.set(selfDestructionKey, PersistentDataType.STRING, "1");
                         Location loc = creeper.getLocation();
                         World world = loc.getWorld();
@@ -427,6 +421,20 @@ public class MobKillsPlugin extends JavaPlugin {
             }
         }
 
+        @EventHandler
+        public void onPlayerDropItem(PlayerDropItemEvent event) {
+            Player player = event.getPlayer();
+            ItemStack item = event.getItemDrop().getItemStack();
+            if (item.getType() == Material.CAKE) {
+                Location pancakeLoc = event.getItemDrop().getLocation();
+                for (Entity entity : pancakeLoc.getWorld().getNearbyEntities(pancakeLoc, 5, 5, 5)) {
+                    if (entity instanceof Player && entity != player) {
+                        wishHappyBirthday((Player) entity, player);
+                    }
+                }
+            }
+        }
+
         private void tameMob(EntityDeathEvent event) {
             Entity entity = event.getEntity();
             Player player = event.getEntity().getKiller();
@@ -444,7 +452,7 @@ public class MobKillsPlugin extends JavaPlugin {
                 entity.remove();
                 entity = initialLocation.getWorld().spawnEntity(initialLocation, EntityType.GIANT);
                 entity.setGravity(true);
-                entity.customName(Component.text(NamedTextColor.RED + "Zombie Giant"));
+                entity.customName(Component.text(ChatColor.RED + "Zombie Giant"));
                 entity.setCustomNameVisible(true);
                 ((Giant) entity).setAI(true);
                 ((Giant) entity).setCollidable(true);
@@ -551,7 +559,7 @@ public class MobKillsPlugin extends JavaPlugin {
 
             // If the objective doesn't exist, create it
             if (objective == null) {
-                LOGGER.warning(NamedTextColor.DARK_PURPLE + MOB_KILLS + " scoreboard doesn't exist, creating...");
+                LOGGER.warning(ChatColor.DARK_PURPLE + MOB_KILLS + " scoreboard doesn't exist, creating...");
                 objective = scoreboard.registerNewObjective(MOB_KILLS, Criteria.DUMMY, Component.text("Mob Kills"));
                 objective.setDisplaySlot(DisplaySlot.SIDEBAR);
             }
@@ -561,7 +569,7 @@ public class MobKillsPlugin extends JavaPlugin {
             score.setScore(newScore);
 
             // Notify the player of their new score
-            player.sendMessage(Component.text(NamedTextColor.GREEN + getMessage(player, "you_killed_mobs", newScore)));
+            // player.sendMessage(Component.text(ChatColor.GREEN + getMessage(player, "you_killed_mobs", newScore)));
 
             // Loop through all online players and update their scoreboards with the latest scores
             for (Player p : Bukkit.getOnlinePlayers()) {
@@ -580,6 +588,108 @@ public class MobKillsPlugin extends JavaPlugin {
                 Score objectiveScore = obj.getScore(player.getName());
                 objectiveScore.setScore(scoreValue);
             }
+        }
+    }
+
+    public void wishHappyBirthday(Player to, Player from) {
+        String title = "З днем народження!";
+        String subtitle = from.getName() + " дарує вам тортик";
+        int fadeIn = 10; // duration of fade in (in ticks)
+        int stay = 20 * 10; // duration of stay (in ticks), 3 seconds
+        int fadeOut = 20; // duration of fade out (in ticks)
+
+        to.sendTitle(title, subtitle, fadeIn, stay, fadeOut);
+        to.setHealth(to.getMaxHealth());
+        to.setFoodLevel(9999);
+        playHappyBirthdaySong(to);
+    }
+
+    public void playHappyBirthdaySong(Player player) {
+        DelayedNote[] happyBirthdayNotes = {
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.THREE), // ha
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.ONE), // ppy
+                new DelayedNote(new Note(0, Note.Tone.E, false), NoteDelay.FOUR), // birth
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.FOUR), // day
+                new DelayedNote(new Note(1, Note.Tone.G, false), NoteDelay.FOUR), // to
+                new DelayedNote(new Note(1, Note.Tone.F, true), NoteDelay.EIGHT), // you
+
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.THREE), // ha
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.ONE), // ppy
+                new DelayedNote(new Note(0, Note.Tone.E, false), NoteDelay.FOUR), // birth
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.FOUR), // day
+                new DelayedNote(new Note(1, Note.Tone.A, false), NoteDelay.FOUR), // to
+                new DelayedNote(new Note(1, Note.Tone.G, false), NoteDelay.EIGHT), // you
+
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.THREE), // ha
+                new DelayedNote(new Note(0, Note.Tone.D, false), NoteDelay.ONE), // ppy
+                new DelayedNote(new Note(1, Note.Tone.D, false), NoteDelay.FOUR), // birth
+                new DelayedNote(new Note(1, Note.Tone.B, false), NoteDelay.FOUR), // day
+                new DelayedNote(new Note(1, Note.Tone.G, false), NoteDelay.FOUR), // dear
+                new DelayedNote(new Note(1, Note.Tone.F, true), NoteDelay.FOUR), // pla
+                new DelayedNote(new Note(0, Note.Tone.E, false), NoteDelay.FOUR), // yer
+
+                new DelayedNote(new Note(1, Note.Tone.C, false), NoteDelay.THREE), // ha
+                new DelayedNote(new Note(1, Note.Tone.C, false), NoteDelay.ONE), // ppy
+                new DelayedNote(new Note(1, Note.Tone.B, false), NoteDelay.FOUR), // birth
+                new DelayedNote(new Note(1, Note.Tone.G, false), NoteDelay.FOUR), // day
+                new DelayedNote(new Note(1, Note.Tone.A, false), NoteDelay.FOUR), // to
+                new DelayedNote(new Note(1, Note.Tone.G, false), NoteDelay.FIVE), // you
+        };
+
+        playSong(player, happyBirthdayNotes);
+    }
+
+    public void givePlayerExperience(Player player) {
+        // Get player's current location
+        Location loc = player.getLocation();
+
+        for (int i = 0; i < 30; i++) {
+            Random random = new Random();
+
+            // Generate random X and Z coordinates within 5 blocks from player
+            double x = loc.getX() + random.nextInt(11) - 7;
+            double z = loc.getZ() + random.nextInt(11) - 7;
+
+            // Set Y coordinate to player's Y minus 5 blocks
+            double y = loc.getY() + 7;
+
+            // Create new location with random X, Y, and Z coordinates
+            Location spawnLoc = new Location(loc.getWorld(), x, y, z);
+
+            // Spawn experience orb at the new location
+            spawnLoc.getWorld().spawn(spawnLoc, ExperienceOrb.class).setExperience(100);
+        }
+
+        player.setLevel(player.getLevel() + 100);
+    }
+
+    public void spawnParticles(Player player) {
+        player.getWorld().spawnParticle(Particle.TOTEM, player.getLocation(), 100);
+    }
+
+    public void playSong(Player player, DelayedNote[] song) {
+        int currentTick = 0;
+        MobKillsPlugin plugin = (MobKillsPlugin) Bukkit.getPluginManager().getPlugin(MOB_KILLS);
+
+        if (plugin == null) {
+            return;
+        }
+
+        for (DelayedNote delayedNote : song) {
+            final Note note = delayedNote.getNote();
+            final NoteDelay delay = delayedNote.getDelay();
+            final int useCount = note.getId();
+
+            final float pitch = (float) Math.pow(2.0, (useCount - 12) / 12.0);
+            final float volume = 1f;
+
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_FLUTE, SoundCategory.RECORDS, volume, pitch);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, SoundCategory.RECORDS, volume, pitch);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_GUITAR, SoundCategory.RECORDS, volume, pitch);
+            }, currentTick);
+
+            currentTick += delay.getTicks() + 1;
         }
     }
 
