@@ -22,6 +22,7 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Create Release
+        permissions: write-all
         id: create_release
         uses: actions/create-release@v1.0.0
         env:
