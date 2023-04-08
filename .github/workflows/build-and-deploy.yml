@@ -28,12 +28,12 @@ jobs:
         id: create_release
         uses: ncipollo/release-action@v1.12.0
         with:
-          # tag: v1.0.$(date +'%Y%m%d%H%M%S')
-          # name: Release v1.0.$(date +'%Y%m%d%H%M%S')
+          tag: v1.0.$(date +'%Y%m%d%H%M%S')
+          name: Release v1.0.$(date +'%Y%m%d%H%M%S')
           draft: false
           prerelease: false
           generateReleaseNotes: true
           omitBody: true
           artifacts: "target/MobKillsPlugin-1.0-SNAPSHOT.jar"
           artifactContentType: "application/java-archive"
-          # commit: "main"
+          commit: "main"
